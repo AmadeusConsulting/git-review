@@ -35,6 +35,7 @@ if sys.version < '3':
     import ConfigParser
     import urllib
     import urlparse
+
     urlencode = urllib.urlencode
     urljoin = urlparse.urljoin
     urlparse = urlparse.urlparse
@@ -44,6 +45,7 @@ else:
 
     import urllib.parse
     import urllib.request
+
     urlencode = urllib.parse.urlencode
     urljoin = urllib.parse.urljoin
     urlparse = urllib.parse.urlparse
@@ -78,7 +80,6 @@ class GitReviewException(Exception):
 
 
 class CommandFailed(GitReviewException):
-
     def __init__(self, *args):
         Exception.__init__(self, *args)
         (self.rc, self.output, self.argv, self.envp) = args
@@ -97,7 +98,6 @@ The following command failed with exit code %(rc)d
 
 
 class ChangeSetException(GitReviewException):
-
     def __init__(self, e):
         GitReviewException.__init__(self)
         self.e = str(e)
@@ -189,8 +189,24 @@ def run_http_exc(klazz, url, **env):
             verify = git_config_get_value("http", "sslVerify", as_bool=True)
             env["verify"] = verify != 'false'
 
+    cookie_file = git_config_get_value('http', 'cookiefile')
+    cookies = {}
+    if cookie_file and os.path.exists(cookie_file):
+        parsed = urlparse(url)
+        url_host = parsed[1]
+        max_matched_length = -1
+        with open(cookie_file) as f:
+            for line in f:
+                splits = line.split("\t")
+                if len(splits) >= 7 and (
+                    splits[0] == url_host or (
+                        splits[0].startswith(".") and url_host.endswith(splits[0]))):
+                    if len(splits[0]) > max_matched_length:
+                        cookies[splits[5]] = splits[6].rstrip()
+                        max_matched_length = len(splits[0])
+
     try:
-        res = requests.get(url, **env)
+        res = requests.get(url, cookies=cookies, **env)
         if res.status_code == 401:
             env['auth'] = git_credentials(klazz, url)
             res = requests.get(url, **env)
@@ -459,7 +475,7 @@ def alias_url(url, rewrite_push):
         longest = None
         for alias in rewrites:
             if (url.startswith(alias)
-                    and (longest is None or len(longest) < len(alias))):
+                and (longest is None or len(longest) < len(alias))):
                 longest = alias
 
         if longest:
@@ -614,7 +630,7 @@ def query_reviews_over_ssh(remote_url, change=None, current_patch_set=True,
         exception,
         "ssh", "-x" + port_data, userhost,
         "gerrit", "query",
-        "--format=JSON %s" % query)
+               "--format=JSON %s" % query)
     if VERBOSE:
         print(output)
 
@@ -730,8 +746,8 @@ def resolve_tracking(remote, branch):
     if tracked_branch:
         if VERBOSE:
             print('Following tracked %s/%s rather than default %s/%s' % (
-                  tracked_remote, tracked_branch,
-                  remote, branch))
+                tracked_remote, tracked_branch,
+                remote, branch))
         return tracked_remote, tracked_branch
 
     return remote, branch
@@ -793,7 +809,6 @@ def check_remote(branch, remote, scheme, hostname, port, project,
 
 
 def rebase_changes(branch, remote, interactive=True):
-
     global _orig_head
 
     remote_branch = "remotes/%s/%s" % (remote, branch)
@@ -873,7 +888,7 @@ def assert_one_change(remote, branch, yes, have_hook):
     else:
         use_color = "--color=never"
     cmd = ("git log %s --decorate --oneline HEAD --not --remotes=%s" % (
-           use_color, remote))
+        use_color, remote))
     (status, output) = run_command_status(cmd)
     if status != 0:
         print("Had trouble running %s" % cmd)
@@ -912,7 +927,6 @@ def use_topic(why, topic):
 
 
 def get_topic(target_branch):
-
     branch_name = get_branch_name(target_branch)
 
     branch_parts = branch_name.split("/")
@@ -1002,10 +1016,10 @@ def list_reviews(remote):
     review_field_width[len(FIELDS) - 1] = 1
 
     review_field_format = "  ".join([
-        review_field_color[i] +
-        review_field_format[i] +
-        color_reset
-        for i in FIELDS])
+                                        review_field_color[i] +
+                                        review_field_format[i] +
+                                        color_reset
+                                        for i in FIELDS])
 
     review_field_width = [
         review_field_width[i] * review_field_justify[i]
@@ -1161,7 +1175,7 @@ def checkout_review(branch_name, remote, remote_branch):
             track_remote, track_branch = parse_tracking(
                 ref='refs/heads/' + branch_name)
             if track_remote and not (track_remote == remote and
-                                     track_branch == remote_branch):
+                                             track_branch == remote_branch):
                 print("Branch %s incorrectly tracking %s/%s instead of %s/%s"
                       % (branch_name,
                          track_remote, track_branch,
@@ -1207,11 +1221,12 @@ class InvalidPatchsetsToCompare(GitReviewException):
             "Invalid patchsets for comparison specified (old=%s,new=%s)" % (
                 patchsetA,
                 patchsetB))
+
     EXIT_CODE = 39
 
 
 def compare_review(review_spec, branch, remote, rebase=False):
-    new_ps = None    # none means latest
+    new_ps = None  # none means latest
 
     if '-' in review_spec:
         review_spec, new_ps = review_spec.split('-')
@@ -1286,6 +1301,7 @@ def _main():
         """Additional option parsing: store value in 'dest', but
            at the same time set one of the flag options to True
         """
+
         def __call__(self, parser, namespace, values, option_string=None):
             setattr(namespace, self.dest, values)
             setattr(namespace, self.const, True)
@@ -1348,29 +1364,29 @@ def _main():
                        action=DownloadFlag, metavar="CHANGE",
                        const="cherrypickcommit",
                        help="Apply the contents of an existing gerrit "
-                             "review onto the current branch and commit "
-                             "(cherry pick; not recommended in most "
-                             "situations)")
+                            "review onto the current branch and commit "
+                            "(cherry pick; not recommended in most "
+                            "situations)")
     fetch.add_argument("-X", "--cherrypickindicate", dest="changeidentifier",
                        action=DownloadFlag, metavar="CHANGE",
                        const="cherrypickindicate",
                        help="Apply the contents of an existing gerrit "
-                       "review onto the current branch and commit, "
-                       "indicating its origin")
+                            "review onto the current branch and commit, "
+                            "indicating its origin")
     fetch.add_argument("-N", "--cherrypickonly", dest="changeidentifier",
                        action=DownloadFlag, metavar="CHANGE",
                        const="cherrypickonly",
                        help="Apply the contents of an existing gerrit "
-                       "review to the working directory and prepare "
-                       "for commit")
+                            "review to the working directory and prepare "
+                            "for commit")
     fetch.add_argument("-m", "--compare", dest="changeidentifier",
                        action=DownloadFlag, metavar="CHANGE,PS[-NEW_PS]",
                        const="compare",
                        help="Download specified and latest (or NEW_PS) "
-                       "patchsets of an existing gerrit review into "
-                       "a branches, rebase on master "
-                       "(skipped on conflicts or when -R is specified) "
-                       "and show their differences")
+                            "patchsets of an existing gerrit review into "
+                            "a branches, rebase on master "
+                            "(skipped on conflicts or when -R is specified) "
+                            "and show their differences")
 
     parser.add_argument("-u", "--update", dest="update", action="store_true",
                         help="Force updates from remote locations")
@@ -1406,7 +1422,7 @@ def _main():
                         help="Print the license and exit")
     parser.add_argument("--version", action="version",
                         version='%s version %s' %
-                        (os.path.split(sys.argv[0])[-1], get_version()))
+                                (os.path.split(sys.argv[0])[-1], get_version()))
     parser.add_argument("branch", nargs="?")
 
     parser.set_defaults(dry=False,
@@ -1537,7 +1553,7 @@ def _main():
         else:
             run_command(regenerate_cmd,
                         GIT_EDITOR="sed -i -e "
-                        "'/^Change-Id:/d'")
+                                   "'/^Change-Id:/d'")
 
     if options.dry:
         print("Please use the following command "
