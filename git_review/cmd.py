@@ -199,8 +199,8 @@ def run_http_exc(klazz, url, **env):
             for line in f:
                 splits = line.split("\t")
                 if len(splits) >= 7 and (
-                    splits[0] == url_host or (
-                        splits[0].startswith(".") and url_host.endswith(splits[0]))):
+                                splits[0] == url_host or (
+                                    splits[0].startswith(".") and url_host.endswith(splits[0]))):
                     if len(splits[0]) > max_matched_length:
                         cookies[splits[5]] = splits[6].rstrip()
                         max_matched_length = len(splits[0])
@@ -593,7 +593,11 @@ def query_reviews_over_http(remote_url, change=None, current_patch_set=True,
                 continue
             patchsets = {}
             for key, revision in review["revisions"].items():
-                fetch_value = list(revision["fetch"].values())[0]
+                fetch_urls = revision["fetch"].values()
+                if fetch_urls:
+                    fetch_value = fetch_urls[0]
+                elif revision["ref"]:
+                    fetch_value = {"ref": revision["ref"]}
                 patchset = {"number": str(revision["_number"]),
                             "ref": fetch_value["ref"]}
                 patchsets[key] = patchset
