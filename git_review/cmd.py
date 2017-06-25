@@ -201,7 +201,7 @@ def run_http_exc(klazz, url, **env):
                 if len(splits) >= 7 and (
                                 splits[0] == url_host or (
                                     splits[0].startswith(".") and url_host.endswith(splits[0]))):
-                    if len(splits[0]) > max_matched_length:
+                    if len(splits[0]) >= max_matched_length:
                         cookies[splits[5]] = splits[6].rstrip()
                         max_matched_length = len(splits[0])
 
